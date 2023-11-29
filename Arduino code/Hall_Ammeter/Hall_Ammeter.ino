@@ -1,5 +1,5 @@
 #include <TMAG5170.h>
-TMAG5170 sensor(31);
+
 
 // function to collect magnetic field data when using fastest sampling stored as 12 bits
 float bit12getB(TMAG5170 &sensor, uint8_t axis, int range) {
@@ -44,38 +44,41 @@ String removechar(String something){
 }
 
 
+TMAG5170 *pSensor = nullptr;
+
 void setup() {
+  Serial.begin(31250);
 
-  pinMode(31, OUTPUT);
-  pinMode(41, OUTPUT);
-  sensor.setOperatingMode(OPERATING_MODE_activeMeasureMode);
-  sensor.setAverage(CONV_AVG_1x);
-  sensor.enableChannels(false, true, false);
-  sensor.setRange(X_RANGE_75mT, Y_RANGE_75mT, Z_RANGE_75mT);
-  sensor.setTriggerMode(TRIGGER_MODE_SPI);
-  Serial.begin(9600);
-
+  pinMode(9, OUTPUT);
+  pSensor = new TMAG5170(27);
+  pSensor->setOperatingMode(OPERATING_MODE_activeMeasureMode);
+  pSensor->setAverage(CONV_AVG_1x);
+  pSensor->enableChannels(false, true, false);
+  pSensor->setRange(X_RANGE_75mT, Y_RANGE_75mT, Z_RANGE_75mT);
+  pSensor->setTriggerMode(TRIGGER_MODE_SPI);
 
 }
 
 
+
+
+
+
+
 void loop() {
 
-
+  
 
   // wait for serial command
-  while(Serial.available() == 0){
-  }
+  while(Serial.available() == 0){}
 
-
-  String serialread = Serial.readStringUntil(";");
-  serialread = removechar(serialread);
-  int time = serialread.toInt() *1000;
+  String serialread = Serial.readStringUntil(';');
+  long time = serialread.toInt() *1000;
 
   //collect 50 samples for background average
-  float avarray[50];
+  int avarray[50];
   for(int i = 0; i < 50; i += 1){
-    avarray[i] = bit12getB(sensor, 0xA, 75);
+    avarray[i] = pSensor->getBRaw(0xA);
     delay(10);
     
   }
@@ -84,38 +87,45 @@ void loop() {
 
 
  // define varibles for time tracking
-  unsigned start;
-  unsigned elapsed = 0;
+  long start;
+  long elapsed = 0;
+  long elapsed_previous = 0;
 
 
+  long count = 0;
   //create arrays for data collection
-  float collectedvalues[1000];
-  int collectedtimes[1000];
-  int count = 0;
+  int collectedvalues[5000];
+  int collectedtimes[5000];
+
 
   //turn on mosfet
-  digitalWrite(41, HIGH);
+  digitalWrite(9, HIGH);
+
 // loop to collect data and time stamps
   start = micros();
   while(elapsed <= time){
+    int delta_elapsed = elapsed - elapsed_previous; 
     // time collected
-    collectedtimes[count] = elapsed;
+    collectedtimes[count] = delta_elapsed;
     // magnetic field collected
-    collectedvalues[count] = bit12getB(sensor, 0xA, 75);
-
+    collectedvalues[count] = pSensor->getBRaw(0xA);
     // bump count recalculate elapsed time
+    elapsed_previous = elapsed;
+    delayMicroseconds(50);
     elapsed = micros() - start;
+ 
     count += 1;
   }
 
   //turn off mosfet
-  digitalWrite(41, LOW);
+  digitalWrite(9, LOW);
 
+  
 
 
 // loop to print average data
   for( int i = 0; i < 50; i += 1){
-    Serial.println(avarray[i], 10);
+    Serial.println(avarray[i]);
   }
 
 
@@ -123,15 +133,17 @@ void loop() {
 // print count lengh 
   Serial.println(count);
 
+
+
 // print time data
   for(int i = 0; i < count; i += 1){
-    Serial.println(collectedtimes[i],10);
+    Serial.println(collectedtimes[i]);
   }
 
 
 //print value data 
   for(int i = 0; i < count; i += 1){
-    Serial.println(collectedvalues[i], 10);
+    Serial.println(collectedvalues[i]);
   
   }
 

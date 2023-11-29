@@ -25,8 +25,8 @@ unsigned flush;
 
 void loop() {
   while(Serial.available() != 0){
-    x = sensor.getBRaw(0xB);
-    Serial.write(sensor.getBRaw(0xB));
+    x = sensor.getBRaw(0xA);
+    Serial.write(sensor.getBRaw(0xA));
     flush = Serial.read();
   }
   
